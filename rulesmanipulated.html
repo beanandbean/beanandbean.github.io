@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style>
+			body, div {
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+			}
+			div.wrapper {
+				position: fixed;
+				top: 0;
+				height: 100%;
+			}
+			div#rules-wrapper {
+				left: 0;
+				width: 65%;
+			}
+			div#rules {
+				margin: 16px 8px 8px 16px;
+				border: 2px solid black;
+				padding: 8px;
+				word-wrap: normal;
+				overflow-y: scroll;
+			}
+			div#new-rule {
+				margin: 8px 8px 16px 16px;
+			}
+			div#new-rule button.cross-button {
+				border: 1px solid black;
+				border-radius: 20px;
+				background: none;
+				margin: 0 2px;
+				padding: 0 2px;
+			}
+			div#string-wrapper {
+				right: 0;
+				width: 35%;
+			}
+			div#menu {
+				text-align: center;
+				margin: 16px 16px 8px 8px;
+			}
+			input#load-file {
+				width: 15em;
+			}
+			div#strings {
+				margin: 8px 16px 16px 8px;
+				border: 2px solid black;
+				padding: 8px;
+				word-wrap: normal;
+				overflow-y: scroll;
+			}
+			div#strings em {
+				font-weight: bold;
+				font-style: normal;
+				font-size: 1.2em;
+			}
+			.player-blue {
+				color: darkblue;
+			}
+			.player-red {
+				color: darkred;
+			}
+		</style>
+		<script>
+			/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+			var saveAs=saveAs||function(e){"use strict";if(typeof e==="undefined"||typeof navigator!=="undefined"&&/MSIE [1-9]\./.test(navigator.userAgent)){return}var t=e.document,n=function(){return e.URL||e.webkitURL||e},r=t.createElementNS("http://www.w3.org/1999/xhtml","a"),o="download"in r,i=function(e){var t=new MouseEvent("click");e.dispatchEvent(t)},a=/constructor/i.test(e.HTMLElement),f=/CriOS\/[\d]+/.test(navigator.userAgent),u=function(t){(e.setImmediate||e.setTimeout)(function(){throw t},0)},d="application/octet-stream",s=1e3*40,c=function(e){var t=function(){if(typeof e==="string"){n().revokeObjectURL(e)}else{e.remove()}};setTimeout(t,s)},l=function(e,t,n){t=[].concat(t);var r=t.length;while(r--){var o=e["on"+t[r]];if(typeof o==="function"){try{o.call(e,n||e)}catch(i){u(i)}}}},p=function(e){if(/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(e.type)){return new Blob([String.fromCharCode(65279),e],{type:e.type})}return e},v=function(t,u,s){if(!s){t=p(t)}var v=this,w=t.type,m=w===d,y,h=function(){l(v,"writestart progress write writeend".split(" "))},S=function(){if((f||m&&a)&&e.FileReader){var r=new FileReader;r.onloadend=function(){var t=f?r.result:r.result.replace(/^data:[^;]*;/,"data:attachment/file;");var n=e.open(t,"_blank");if(!n)e.location.href=t;t=undefined;v.readyState=v.DONE;h()};r.readAsDataURL(t);v.readyState=v.INIT;return}if(!y){y=n().createObjectURL(t)}if(m){e.location.href=y}else{var o=e.open(y,"_blank");if(!o){e.location.href=y}}v.readyState=v.DONE;h();c(y)};v.readyState=v.INIT;if(o){y=n().createObjectURL(t);setTimeout(function(){r.href=y;r.download=u;i(r);h();c(y);v.readyState=v.DONE});return}S()},w=v.prototype,m=function(e,t,n){return new v(e,t||e.name||"download",n)};if(typeof navigator!=="undefined"&&navigator.msSaveOrOpenBlob){return function(e,t,n){t=t||e.name||"download";if(!n){e=p(e)}return navigator.msSaveOrOpenBlob(e,t)}}w.abort=function(){};w.readyState=w.INIT=0;w.WRITING=1;w.DONE=2;w.error=w.onwritestart=w.onprogress=w.onwrite=w.onabort=w.onerror=w.onwriteend=null;return m}(typeof self!=="undefined"&&self||typeof window!=="undefined"&&window||this.content);if(typeof module!=="undefined"&&module.exports){module.exports.saveAs=saveAs}else if(typeof define!=="undefined"&&define!==null&&define.amd!==null){define([],function(){return saveAs})}
+		</script>
+		<script>
+			class BaseNode {
+				constructor() {
+					this.choice = null;
+					this.subnodes = [];
+				}
+				get completed() {
+					if (this.choice == null || !this.filled) {
+						return false;
+					}
+					for (var i = 0; i < this.subnodes.length; i++) {
+						if (!this.subnodes[i].completed) {
+							return false;
+						}
+					}
+					return true;
+				}
+				get filled() {
+					return true;
+				}
+				get htmlObject() {
+					var node = this;
+					var span = document.createElement("span");
+					span.appendText("[");
+					var button = createCrossButton();
+					button.addEventListener("click", function() { node.chooseNull() });
+					span.appendChild(button);
+					for (var i = 0; i < this.tokens.length; i++) {
+						if (this.tokens[i] instanceof BaseNode) {
+							span.appendChild(this.tokens[i].htmlObject);
+						} else if (this.tokens[i] instanceof Element) {
+							span.appendChild(this.tokens[i]);
+						} else {
+							span.appendText(this.tokens[i]);
+						}
+					}
+					span.appendText(" ]");
+					return span;
+				}
+				get ruleString() {
+					var result = "[ ";
+					for (var i = 0; i < this.tokens.length; i++) {
+						if (this.tokens[i] instanceof BaseNode) {
+							result += this.tokens[i].ruleString;
+						} else if (this.tokens[i] instanceof Element) {
+							result += this.tokens[i].value;
+						} else {
+							result += this.tokens[i];
+						}
+					}
+					result += " ]";
+					return result;
+				}
+				get data() {
+					var data = new Object();
+					data.choice = this.choice;
+					return data;
+				}
+				loadData(data) {
+					this.choice = data.choice;
+				}
+				create(Cls) {
+					var node = new Cls();
+					this.subnodes.push(node);
+					return node;
+				}
+				createWithData(Cls, data) {
+					var node = new Cls();
+					node.loadData(data);
+					this.subnodes.push(node);
+					return node;
+				}
+				chooseNull() {
+					this.choice = null;
+					this.subnodes = [];
+					renderRule();
+				}
+			}
+			class Statement extends BaseNode {
+				constructor() {
+					super();
+					this.player = null;
+				}
+				get tokens() {
+					switch (this.choice) {
+					case "replace":
+						return ["Replace ", this.range, " with ", this.string];
+					case "remove":
+						return ["Remove ", this.range];
+					case "if":
+						return ["If ", this.condition, " then ", this.action];
+					}
+				}
+				get htmlObject() {
+					var node = this;
+					if (this.choice == null) {
+						var select = createSelect(["", "replace", "remove", "if"],
+							["(please select)", "replace", "remove", "if ... then ..."]);
+						select.addEventListener("change", function() {
+							if (select.value != "") {
+								node.choice = select.value;
+								switch (select.value) {
+								case "replace":
+									node.range = node.create(Range);
+									node.string = node.create(StringField);
+									break;
+								case "remove":
+									node.range = node.create(Range);
+									break;
+								case "if":
+									node.condition = node.create(Condition);
+									node.action = node.create(Action);
+									break;
+								}
+								renderRule();
+							}
+						});
+						return select;
+					} else {
+						return super.htmlObject;
+					}
+				}
+				get meetCondition() {
+					try {
+						switch (this.choice) {
+						case "replace":
+						case "remove":
+							var range = this.range.value;
+							if (validateRange(range)) {
+								return true;
+							} else {
+								return false;
+							}
+						case "if":
+							return this.condition.value && this.action.meetCondition;
+						}
+					} catch (err) {
+						console.log(err);
+						return false;
+					}
+				}
+				get data() {
+					var data = super.data;
+					data.player = this.player;
+					switch (this.choice) {
+					case "replace":
+						data.range = this.range.data;
+						data.string = this.string.data;
+						break;
+					case "remove":
+						data.range = this.range.data;
+						break;
+					case "if":
+						data.condition = this.condition.data;
+						data.action = this.action.data;	
+						break;
+					}
+					return data;
+				}
+				loadData(data) {
+					super.loadData(data);
+					this.player = data.player;
+					switch (this.choice) {
+					case "replace":
+						this.range = this.createWithData(Range, data.range);
+						this.string = this.createWithData(StringField, data.string);
+						break;
+					case "remove":
+						this.range = this.createWithData(Range, data.range);
+						break;
+					case "if":
+						this.condition = this.createWithData(Condition, data.condition);
+						this.action = this.createWithData(Action, data.action);
+						break;
+					}
+				}
+				execute() {
+					if (this.meetCondition) {
+						switch (this.choice) {
+						case "replace":
+							var range = this.range.value;
+							var substring = this.string.value;
+							if (range[1] - range[0] > 3 || substring.length > 3) {
+								throw "cannot edit more than 3 characters at one time!";
+							} else {
+								string = string.substring(0, range[0]) + substring + string.substring(range[1]);
+							}
+							break;
+						case "remove":
+							var range = this.range.value;
+							if (range[1] - range[0] > 3) {
+								throw "cannot edit more than 3 characters at one time!";
+							} else {
+								string = string.substring(0, range[0]) + string.substring(range[1]);
+							}
+							break;
+						case "if":
+							this.action.execute();
+							break;
+						}
+						return true;
+					} else {
+						return false;
+					}
+				}
+			}
+			class Action extends BaseNode {
+				get tokens() {
+					switch (this.choice) {
+					case "replace":
+						return ["replace ", this.range, " with ", this.string];
+					case "remove":
+						return ["remove ", this.range];	
+					case "add-end":
+						return ["add ", this.string, " at the ", this.select];	
+					case "add-location":
+						return ["add ", this.string, " ", this.select, " ", this.location];
+					}
+				}
+				get htmlObject() {
+					var node = this;
+					if (this.choice == null) {
+						var select = createSelect(["", "replace", "remove", "add-end", "add-location"],
+							["(please select)", "replace", "remove", "add at beginning / end", "add before / after ..."]);
+						select.addEventListener("change", function() {
+							if (select.value != "") {
+								node.choice = select.value;
+								switch (select.value) {
+								case "replace":
+									node.range = node.create(Range);
+									node.string = node.create(StringField);
+									break;
+								case "remove":
+									node.range = node.create(Range);
+									break;
+								case "add-end":
+									node.string = node.create(StringField);
+									node.select = createSelect(["beginning", "end"], ["beginning", "end"]);
+									break;
+								case "add-location":
+									node.string = node.create(StringField);
+									node.select = createSelect(["before", "after"], ["before", "after"]);
+									node.location = node.create(IntegerField);
+									break;
+								}
+								renderRule();
+							}
+						});
+						return select;
+					} else {
+						return super.htmlObject;
+					}
+				}
+				get meetCondition() {
+					try {
+						switch (this.choice) {
+						case "replace":
+						case "remove":
+							var range = this.range.value;
+							if (validateRange(range)) {
+								return true;
+							} else {
+								return false;
+							}
+						case "add-end":
+							return true;
+						case "add-location":
+							var location = this.location.value - 1;
+							if (location >= 0 && location < string.length) {
+								return true;
+							} else {
+								return false
+							}
+						}
+					} catch (err) {
+						console.log(err);
+						return false;
+					}
+				}
+				get data() {
+					var data = super.data;
+					switch (this.choice) {
+					case "replace":
+						data.range = this.range.data;
+						data.string = this.string.data;
+						break;
+					case "remove":
+						data.range = this.range.data;
+						break;
+					case "add-end":
+						data.string = this.string.data;
+						data.select = this.select.value;
+						break;
+					case "add-location":
+						data.string = this.string.data;
+						data.select = this.select.value;
+						data.location = this.location.data;
+						break;
+					}
+					return data;
+				}
+				loadData(data) {
+					super.loadData(data);
+					switch (this.choice) {
+					case "replace":
+						this.range = this.createWithData(Range, data.range);
+						this.string = this.createWithData(StringField, data.string);
+						break;
+					case "remove":
+						this.range = this.createWithData(Range, data.range);
+						break;
+					case "add-end":
+						this.string = this.createWithData(StringField, data.string);
+						this.select = createSelect(["beginning", "end"], ["beginning", "end"]);
+						this.select.value = data.select;
+						break;
+					case "add-location":
+						this.string = this.createWithData(StringField, data.string);
+						this.select = createSelect(["before", "after"], ["before", "after"]);
+						this.select.value = data.select;
+						this.location = this.createWithData(IntegerField, data.location);
+						break;
+					}
+				}
+				execute() {
+					switch (this.choice) {
+					case "replace":
+						var range = this.range.value;
+						var substring = this.string.value;
+						if (range[1] - range[0] > 3 || substring.length > 3) {
+							throw "cannot edit more than 3 characters at one time!";
+						} else {
+							string = string.substring(0, range[0]) + substring + string.substring(range[1]);
+						}
+						break;
+					case "remove":
+						var range = this.range.value;
+						if (range[1] - range[0] > 3) {
+							throw "cannot edit more than 3 characters at one time!";
+						} else {
+							string = string.substring(0, range[0]) + string.substring(range[1]);
+						}
+						break;
+					case "add-end":
+						var substring = this.string.value;
+						if (substring.length > 3) {
+							throw "cannot edit more than 3 characters at one time!";
+						} else {
+							switch (this.select.value) {
+							case "beginning":
+								string = substring + string;
+								break;
+							case "end":
+								string = string + substring;
+								break;
+							}
+						}
+						break;
+					case "add-location":
+						var substring = this.string.value;
+						if (substring.length > 3) {
+							throw "cannot edit more than 3 characters at one time!";
+						} else {
+							var location = this.location.value - 1;
+							switch (this.select.value) {
+							case "before":
+								string = string.substring(0, location) + substring + string.substring(location);
+								break;
+							case "after":
+								string = string.substring(0, location + 1) + substring + string.substring(location + 1);
+								break;
+							}
+						}
+						break;
+					}
+				}
+			}
+			class Condition extends BaseNode {
+				get tokens() {
+					switch (this.choice) {
+					case "not":
+						return ["not ", this.condition];
+					case "logic":
+						return [this.left, " ", this.select, " ", this.right];
+					case "int-compare":
+						return [this.left, " ", this.select, " ", this.right];	
+					case "string-compare":
+						return [this.left, " ", this.select, " ", this.right];
+					case "substring":
+						return [this.full, " ", this.select, " ", this.substring];
+					}
+				}
+				get htmlObject() {
+					var node = this;
+					if (this.choice == null) {
+						var select = createSelect(["", "not", "logic", "int-compare", "string-compare", "substring"],
+							["(please select)", "not ...", "and / or", "integer comparison", "string comparison", "substring"]);
+						select.addEventListener("change", function() {
+							if (select.value != "") {
+								node.choice = select.value;
+								switch (select.value) {
+								case "not":
+									node.condition = node.create(Condition);
+									break;
+								case "logic":
+									node.left = node.create(Condition);
+									node.select = createSelect(["and", "or"], ["and", "or"]);
+									node.right = node.create(Condition);
+									break;
+								case "int-compare":
+									node.left = node.create(IntegerField);
+									node.select = createSelect(["=", "!=", ">", "<", ">=", "<="], ["=", "!=", ">", "<", ">=", "<="]);
+									node.right = node.create(IntegerField);
+									break;
+								case "string-compare":
+									node.left = node.create(StringField);
+									node.select = createSelect(["=", "!="], ["=", "!="]);
+									node.right = node.create(StringField);
+									break;
+								case "substring":
+									node.full = node.create(StringField);
+									node.full.defaultString = true;
+									node.select = createSelect(["contains", "startswith", "endswith"], ["contains", "startswith", "endswith"]);
+									node.substring = node.create(StringField);
+									break;
+								}
+								renderRule();
+							}
+						});
+						return select;
+					} else {
+						return super.htmlObject;
+					}
+				}
+				get value() {
+					switch (this.choice) {
+					case "not":
+						return !this.condition.value;
+					case "logic":
+						switch (this.select.value) {
+						case "and":
+							return this.left.value && this.right.value;
+						case "or":
+							return this.left.value || this.right.value;
+						}
+					case "int-compare":
+						switch (this.select.value) {
+						case "=":
+							return this.left.value == this.right.value;
+						case "!=":
+							return this.left.value != this.right.value;
+						case ">":
+							return this.left.value > this.right.value;
+						case "<":
+							return this.left.value < this.right.value;
+						case ">=":
+							return this.left.value >= this.right.value;
+						case "<=":
+							return this.left.value <= this.right.value;
+						}
+					case "string-compare":
+						switch (this.select.value) {
+						case "=":
+							return this.left.value == this.right.value;
+						case "!=":
+							return this.left.value != this.right.value;
+						}
+					case "substring":
+						switch (this.select.value) {
+						case "contains":
+							return this.full.value.includes(this.substring.value);
+						case "startswith":
+							return this.full.value.startsWith(this.substring.value);
+						case "endswith":
+							return this.full.value.endsWith(this.substring.value);
+						}
+					}
+				}
+				get data() {
+					var data = super.data;
+					switch (this.choice) {
+					case "not":
+						data.condition = this.condition.data;
+						break;
+					case "logic":
+						data.left = this.left.data;
+						data.select = this.select.value;
+						data.right = this.right.data;
+						break;
+					case "int-compare":
+						data.left = this.left.data;
+						data.select = this.select.value;
+						data.right = this.right.data;
+						break;
+					case "string-compare":
+						data.left = this.left.data;
+						data.select = this.select.value;
+						data.right = this.right.data;
+						break;
+					case "substring":
+						data.full = this.full.data;
+						data.select = this.select.value;
+						data.substring = this.substring.data;
+						break;
+					}
+					return data;
+				}
+				loadData(data) {
+					super.loadData(data);
+					switch (this.choice) {
+					case "not":
+						this.condition = this.createWithData(Condition, data.condition);
+						break;
+					case "logic":
+						this.left = this.createWithData(Condition, data.left);
+						this.select = createSelect(["and", "or"], ["and", "or"]);
+						this.select.value = data.select;
+						this.right = this.createWithData(Condition, data.right);
+						break;
+					case "int-compare":
+						this.left = this.createWithData(IntegerField, data.left);
+						this.select = createSelect(["=", "!=", ">", "<", ">=", "<="], ["=", "!=", ">", "<", ">=", "<="]);
+						this.select.value = data.select;
+						this.right = this.createWithData(IntegerField, data.right);
+						break;
+					case "string-compare":
+						this.left = this.createWithData(StringField, data.left);
+						this.select = createSelect(["=", "!="], ["=", "!="]);
+						this.select.value = data.select;
+						this.right = this.createWithData(StringField, data.right);
+						break;
+					case "substring":
+						this.full = this.createWithData(StringField, data.full);
+						this.select = createSelect(["contains", "startswith", "endswith"], ["contains", "startswith", "endswith"]);
+						this.select.value = data.select;
+						this.substring = this.createWithData(StringField, data.substring);
+						break;
+					}
+				}
+			}
+			class Range extends BaseNode {
+				constructor() {
+					super();
+					this.defaultString = false;
+					this.literal = false;
+				}
+				get filled() {
+					if (this.choice == "literal") {
+						return this.input.value != "";
+					} else {
+						return super.filled;
+					}
+				}
+				get completed() {
+					if (this.defaultString && this.choice == null) {
+						return true;
+					} else {
+						return super.completed;
+					}
+				}
+				get tokens() {
+					switch (this.choice) {
+					case null:
+					case "whole":
+						return ["whole string"];
+					case "literal":
+						return ["\"", this.input, "\""];
+					case "begin-end":
+						return ["from ", this.begin, " to ", this.end];	
+					case "begin-length":
+						return ["from ", this.begin, " length ", this.length];
+					case "chars":
+						return [this.select, " ", this.length, " characters in ", this.range];
+					case "occurrence":
+						return [this.select, " occurrence of ", this.string, " in ", this.range];
+					}
+				}
+				get htmlObject() {
+					var node = this;
+					if (this.choice == null) {
+						if (this.defaultString) {
+							if (this.literal) {
+								var select = createSelect(["", "literal", "begin-end", "begin-length", "chars"],
+									["whole string", "literal", "from ... to ...", "from ... length ...", "first / last characters"]);
+							} else {
+								var select = createSelect(["", "begin-end", "begin-length", "chars", "occurrence"],
+									["whole string", "from ... to ...", "from ... length ...", "first / last characters", "first / last occurrence"]);
+							}
+						} else {
+							if (this.literal) {
+								var select = createSelect(["", "literal", "begin-end", "begin-length", "chars", "whole"],
+									["(please select)", "literal", "from ... to ...", "from ... length ...", "first / last characters", "whole string"]);
+							} else {
+								var select = createSelect(["", "begin-end", "begin-length", "chars", "occurrence", "whole"],
+									["(please select)", "from ... to ...", "from ... length ...", "first / last characters", "first / last occurrence", "whole string"]);
+							}
+						}
+						select.addEventListener("change", function() {
+							if (select.value != "") {
+								node.choice = select.value;
+								switch (select.value) {
+								case "literal":
+									node.input = document.createElement("input");
+									node.input.type = "text";
+									node.input.addEventListener("change", renderRule);
+									break;
+								case "begin-end":
+									node.begin = node.create(IntegerField);
+									node.end = node.create(IntegerField);
+									break;
+								case "begin-length":
+									node.begin = node.create(IntegerField);
+									node.length = node.create(IntegerField);
+									break;
+								case "chars":
+									node.select = createSelect(["first", "last"], ["first", "last"]);
+									node.length = node.create(IntegerField);
+									node.range = node.create(Range);
+									node.range.defaultString = true;
+									break;
+								case "occurrence":
+									node.select = createSelect(["first", "last"], ["first", "last"]);
+									node.string = node.create(StringField);
+									node.range = node.create(Range);
+									node.range.defaultString = true;
+									break;
+								}
+								renderRule();
+							}
+						});
+						return select;
+					} else {
+						return super.htmlObject;
+					}
+				}
+				get value() {
+					switch (this.choice) {
+					case null:
+					case "whole":
+						return [0, string.length];
+					case "begin-end":
+						return [this.begin.value - 1, this.end.value];	
+					case "begin-length":
+						var begin = this.begin.value;
+						return [begin - 1, begin + this.length.value - 1];
+					case "chars":
+						var length = this.length.value;
+						var range = this.range.value;
+						if (range[1] - range[0] < length) {
+							throw "not enough characters in range!";
+						} else {
+							switch (this.select.value) {
+							case "first":
+								return [range[0], range[0] + length];
+							case "last":
+								return [range[1] - length, range[1]];
+							}
+						}
+					case "occurrence":
+						var substring = this.string.value;
+						var range = this.range.value;
+						var maxStart = range[1] - substring.length;
+						switch (this.select.value) {
+						case "first":
+							var index = string.indexOf(substring, range[0]);
+							if (index == -1 || index > maxStart) {
+								throw "no occurrence is found!";
+							} else {
+								return [index, index + substring.length];
+							}
+						case "last":
+							var index = string.lastIndexOf(substring, maxStart);
+							if (index == -1 || index < range[0]) {
+								throw "no occurrence is found!";
+							} else {
+								return [index, index + substring.length];
+							}
+						}
+					}
+				}
+				get data() {
+					var data = super.data;
+					data.defaultString = this.defaultString;
+					data.literal = this.literal;
+					switch (this.choice) {
+					case "literal":
+						data.input = this.input.value;
+						break;
+					case "begin-end":
+						data.begin = this.begin.data;
+						data.end = this.end.data;
+						break;
+					case "begin-length":
+						data.begin = this.begin.data;
+						data.length = this.length.data;
+						break;
+					case "chars":
+						data.select = this.select.value;
+						data.length = this.length.data;
+						data.range = this.range.data;
+						break;
+					case "occurrence":
+						data.select = this.select.value;
+						data.string = this.string.data;
+						data.range = this.range.data;
+						break;
+					}
+					return data;
+				}
+				loadData(data) {
+					super.loadData(data);
+					this.defaultString = data.defaultString;
+					this.literal = data.literal;
+					switch (this.choice) {
+					case "literal":
+						this.input = document.createElement("input");
+						this.input.type = "text";
+						this.input.value = data.input;
+						break;
+					case "begin-end":
+						this.begin = this.createWithData(IntegerField, data.begin);
+						this.end = this.createWithData(IntegerField, data.end);
+						break;
+					case "begin-length":
+						this.begin = this.createWithData(IntegerField, data.begin);
+						this.length = this.createWithData(IntegerField, data.length);
+						break;
+					case "chars":
+						this.select = createSelect(["first", "last"], ["first", "last"]);
+						this.select.value = data.select;
+						this.length = this.createWithData(IntegerField, data.length);
+						this.range = this.createWithData(Range, data.range);
+						break;
+					case "occurrence":
+						this.select = createSelect(["first", "last"], ["first", "last"]);
+						this.select.value = data.select;
+						this.string = this.createWithData(StringField, data.string);
+						this.range = this.createWithData(Range, data.range);
+						break;
+					}
+				}
+			}
+			class StringField extends Range {
+				constructor() {
+					super();
+					this.literal = true;
+				}
+				get value() {
+					if (this.choice == "literal") {
+						return this.input.value.toUpperCase();
+					} else {
+						var range = super.value;
+						if (validateRange(range)) {
+							return string.substring(range[0], range[1]);
+						} else {
+							throw "substring indices out of range!";
+						}
+					}
+				}
+			}
+			class IntegerField extends BaseNode {
+				get filled() {
+					if (this.choice == "literal") {
+						return this.input.value != "" && Number.isInteger(this.input.valueAsNumber);
+					} else {
+						return super.filled;
+					}
+				}
+				get tokens() {
+					switch (this.choice) {
+					case "literal":
+						return [this.input];
+					case "arithmetic":
+						return [this.left, " ", this.select, " ", this.right];
+					case "range":
+						return [this.select, " of ", this.range];
+					case "occurrence":
+						return [this.select, " occurrence of ", this.string, " in ", this.range];
+					}
+				}
+				get htmlObject() {
+					var node = this;
+					if (this.choice == null) {
+						var select = createSelect(["", "literal", "arithmetic", "range", "occurrence"],
+							["(please select)", "literal", "arithmetic", "range properties", "first / last occurrence"]);
+						select.addEventListener("change", function() {
+							if (select.value != "") {
+								node.choice = select.value;
+								switch (select.value) {
+								case "literal":
+									node.input = document.createElement("input");
+									node.input.type = "number";
+									node.input.addEventListener("change", renderRule);
+									break;
+								case "arithmetic":
+									node.left = node.create(IntegerField);
+									node.select = createSelect(["+", "-", "*", "/", "%"], ["+", "-", "*", "/", "%"]);
+									node.right = node.create(IntegerField);
+									break;
+								case "range":
+									node.select = createSelect(["beginning", "end", "length"], ["beginning", "end", "length"]);
+									node.range = node.create(Range);
+									node.range.defaultString = true;
+									break;
+								case "occurrence":
+									node.select = createSelect(["first", "last"], ["first", "last"]);
+									node.string = node.create(StringField);
+									node.range = node.create(Range);
+									node.range.defaultString = true;
+									break;
+								}
+								renderRule();
+							}
+						});
+						return select;
+					} else {
+						return super.htmlObject;
+					}
+				}
+				get value() {
+					switch (this.choice) {
+					case "literal":
+						return this.input.valueAsNumber;
+					case "arithmetic":
+						switch (this.select.value) {
+						case "+":
+							return this.left.value + this.right.value;
+						case "-":
+							return this.left.value - this.right.value;
+						case "*":
+							return this.left.value * this.right.value;
+						case "/":
+							var denom = this.right.value;
+							if (this.right.value == 0) {
+								throw "number divided by zero!";
+							} else {
+								return Math.trunc(this.left.value / this.right.value);
+							}
+						case "%":var denom = this.right.value;
+							if (this.right.value == 0) {
+								throw "number divided by zero!";
+							} else {
+								return this.left.value % this.right.value;
+							}
+						}
+					case "range":
+						switch (this.select.value) {
+						case "beginning":
+							return this.range.value[0] + 1;
+						case "end":
+							return this.range.value[1];
+						case "length":
+							var range = this.range.value;
+							return range[1] - range[0];
+						}
+					case "occurrence":
+						var substring = this.string.value;
+						var range = this.range.value;
+						var maxStart = range[1] - substring.length;
+						switch (this.select.value) {
+						case "first":
+							var index = string.indexOf(substring, range[0]);
+							if (index == -1 || index > maxStart) {
+								throw "no occurrence is found!"
+							} else {
+								return index + 1;
+							}
+						case "last":
+							var index = string.lastIndexOf(substring, maxStart);
+							if (index == -1 || index < range[0]) {
+								throw "no occurrence is found!"
+							} else {
+								return index + 1;
+							}
+						}
+					}
+				}
+				get data() {
+					var data = super.data;
+					switch (this.choice) {
+					case "literal":
+						data.input = this.input.value;
+						break;
+					case "arithmetic":
+						data.left = this.left.data;
+						data.select = this.select.value;
+						data.right = this.right.data;
+						break;
+					case "range":
+						data.select = this.select.value;
+						data.range = this.range.data;
+						break;
+					case "occurrence":
+						data.select = this.select.value;
+						data.string = this.string.data;
+						data.range = this.range.data;
+						break;
+					}
+					return data;
+				}
+				loadData(data) {
+					super.loadData(data);
+					switch (this.choice) {
+					case "literal":
+						this.input = document.createElement("input");
+						this.input.type = "number";
+						this.input.value = data.input;
+						break;
+					case "arithmetic":
+						this.left = this.createWithData(IntegerField, data.left);
+						this.select = createSelect(["+", "-", "*", "/", "%"], ["+", "-", "*", "/", "%"]);
+						this.select.value = data.select;
+						this.right = this.createWithData(IntegerField, data.right);
+						break;
+					case "range":
+						this.select = createSelect(["beginning", "end", "length"], ["beginning", "end", "length"]);
+						this.select.value = data.select;
+						this.range = this.createWithData(Range, data.range);
+						break;
+					case "occurrence":
+						this.select = createSelect(["first", "last"], ["first", "last"]);
+						this.select.value = data.select;
+						this.string = this.createWithData(StringField, data.string);
+						this.range = this.createWithData(Range, data.range);
+						break;
+					}
+				}
+			}
+			String.prototype.capitalizeFirstLetter = function() {
+    		return this.charAt(0).toUpperCase() + this.slice(1);
+			}
+			Element.prototype.appendText = function(text) {
+				this.appendChild(document.createTextNode(text));
+			}
+			function $(name) {
+				return document.getElementById(name);
+			}
+			function validateRange(range) {
+				return range[0] >= 0 && range[0] < string.length && range[1] >= range[0] && range[1] <= string.length
+			}
+			function createSelect(values, texts) {
+				var select = document.createElement("select");
+				for (var i = 0; i < values.length; i++) {
+    			var option = document.createElement("option");
+    			option.value = values[i];
+    			option.text = texts[i];
+    			select.appendChild(option);
+				}
+				return select;
+			}
+			function createCrossButton() {
+				var button = document.createElement("button");
+				button.className = "cross-button";
+				button.innerHTML = "&#10006;";
+				return button;
+			}
+			function loadGame() {
+				player = null;
+				win = false;
+				string = "ABCD";
+				rules = [];
+				lines = [];
+				$("rules").innerHTML = "";
+				$("regret").disabled = true;
+				logString("initial");
+				newRule();
+			}
+			function renderRule() {
+				var element = $("current-rule");
+				if (element.firstChild != null) {
+					element.replaceChild(currentRule.htmlObject, element.firstChild);
+				} else {
+					element.appendChild(currentRule.htmlObject);
+				}
+				$("add-rule").disabled = win || !currentRule.completed;
+				updateLayout();
+			}
+			function updateLayout() {
+				$("rules").style.height = $("rules-wrapper").offsetHeight - 60 - $("new-rule").offsetHeight + "px";
+				$("strings").style.height = $("string-wrapper").offsetHeight - 60 - $("menu").offsetHeight + "px";
+			}
+			window.addEventListener("resize", updateLayout, true);
+			function newRule() {
+				if (player == "blue") {
+					player = "red";
+				} else {
+					player = "blue";
+				}
+				setupRule();
+			}
+			function setupRule() {
+				currentRule = new Statement();
+				currentRule.player = player;
+				$("current-player").innerText = "Player " + player.capitalizeFirstLetter() + ": ";
+				$("current-player").className = "player-" + player;
+				renderRule();
+			}
+			function addRule() {
+				prev = getAllData();
+				$("regret").disabled = false;
+				rules.push(currentRule);
+				if ($("rules").innerHTML != "") {
+					$("rules").innerHTML += "<br />";
+				}
+				$("rules").innerHTML += "<span class=\"player-" + player + "\">" + rules.length + ". " + currentRule.ruleString + "</span>";
+				execute();
+				newRule();
+			}
+			function execute() {
+				try {
+					if (currentRule.execute()) {
+						logString("rule " + rules.length)
+						var passed = new Set([string + rules.length]);
+						if (string == "") {
+							doWin()
+						} else if (string.length > 20) {
+							logLine("<span class=\"player-" + player + "\">player " + player + " fault by exceeding the maximum string length!</span>");
+							doLose();
+						} else if (currentRule.meetCondition) {
+							logLine("<span class=\"player-" + player + "\">player " + player + " fault by making a rule that matches twice!</span>");
+							doLose();
+						} else {
+							while (true) {
+								var executed = false;
+								for (var i = 0; i < rules.length; i++) {
+									if (rules[i].execute()) {
+										logString("rule " + (i + 1));									
+										executed = true;
+										var executionId = string + rules.length;
+										if (passed.has(executionId)) {
+											logLine("<span class=\"player-" + player + "\">player " + player + " fault by forming an execution cycle!</span>");
+											doLose();
+											throw "LOSE";
+										} else {
+											passed.add(executionId);
+											if (string == "") {
+												doWin();
+											} else if (string.length > 20) {
+												logLine("<span class=\"player-" + player + "\">player " + player + " fault by exceeding the maximum string length!</span>");
+												doLose();
+												throw "LOSE";
+											}
+										}
+									}
+								}
+								if (!executed) {
+									break;
+								}
+							}
+						}
+					}
+				} catch (err) {
+					if (err != "LOSE") {
+						logLine("<span class=\"player-" + player + "\">player " + player + " fault as run-time error: " + err + "</span>");
+						doLose();
+					}
+				}
+			}
+			function doWin() {
+				win = true;
+				logLine("<span class=\"player-" + player + "\">player " + player + " wins!</span>");
+			}
+			function doLose() {
+				win = true;
+				if (player == "blue") {
+					var winner = "red";
+				} else {
+					var winner = "blue";
+				}
+				logLine("<span class=\"player-" + winner + "\">player " + winner + " wins!</span>");
+			}
+			MAXLINE = 200;
+			function logLine(line) {
+				if (lines.length >= MAXLINE) {
+					lines = lines.slice(lines.length - MAXLINE + 1, lines.length);
+				}
+				lines.push(line);
+				var strings = $("strings");
+				strings.innerHTML = lines.join("<br />");
+				strings.scrollTop = strings.scrollHeight;
+			}
+			function logString(comment) {
+				if (player == null) {
+					var className = "";
+				} else {
+					var className = " class=\"player-" + player + "\"";
+				}
+				logLine("<span" + className + "><em>\"" + string + "\"</em> " + comment + "</span>");
+			}
+			function getAllData() {
+				var data = new Object();
+				data.player = player;
+				data.win = win;
+				data.string = string;
+				data.lines = lines;
+				data.rules = [];
+				for (var i = 0; i < rules.length; i++) {
+					data.rules.push(rules[i].data);
+				}
+				return JSON.stringify(data);
+			}
+			function loadAllData(json) {
+				var data = JSON.parse(json);
+				player = data.player;
+				win = data.win;
+				string = data.string;
+				lines = data.lines;
+				rules = [];
+				$("rules").innerHTML = "";
+				for (var i = 0; i < data.rules.length; i++) {
+					var statement = new Statement();
+					statement.loadData(data.rules[i]);
+					rules.push(statement);
+					if ($("rules").innerHTML != "") {
+						$("rules").innerHTML += "<br />";
+					}
+					$("rules").innerHTML += "<span class=\"player-" + statement.player + "\">" + rules.length + ". " + statement.ruleString + "</span>";
+				}
+				$("regret").disabled = true;
+				var strings = $("strings");
+				strings.innerHTML = lines.join("<br />");
+				strings.scrollTop = strings.scrollHeight;
+				setupRule();
+			}
+			function regret() {
+				var prevRule = rules[rules.length - 1];
+				loadAllData(prev);
+				currentRule = prevRule;
+				renderRule();
+			}
+			function save() {
+				var blob = new Blob([getAllData()], {type: "text/plain"});
+				saveAs(blob, "game-save.rms");
+			}
+			function loadUpdate() {
+				$("load").disabled = $("load-file").files.length == 0;
+			}
+			function load() {
+				var reader = new FileReader();
+  			reader.onload = function(e) {
+    			loadAllData(e.target.result);
+					$("load-file").value = "";
+					$("load").disabled = true;
+  			};
+  			reader.readAsText($("load-file").files[0]);
+			}
+		</script>
+		<title>Rules Manipulated! Game</title>
+	</head>
+	<body onload="loadGame()">
+		<div class="wrapper" id="rules-wrapper">
+			<div id="rules"></div>
+			<div id="new-rule">
+				<span id="current-player"></span>
+				<span id="current-rule"></span>
+				<button id="add-rule" onclick="addRule()">Add rule!</button>
+			</div>
+		</div>
+		<div class="wrapper" id="string-wrapper">
+			<div id="menu">
+				<button onclick="loadGame()">Reset</button>
+				<button id="regret" onclick="regret()">Regret</button>
+				<button onclick="save()">Save</button> <br />
+				<input id="load-file" type="file" accept=".rms" onchange="loadUpdate()" />
+				<button id="load" onclick="load()" disabled="true">Load</button>
+			</div>
+			<div id="strings"></div>
+		</div>
+	</body>
+</html>
