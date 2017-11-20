@@ -1,0 +1,183 @@
+<style>
+	* {
+		margin: 0;
+		padding: 0;
+	}
+</style>
+
+<script src="three.min.js"></script>
+<script src="CanvasRenderer.js"></script>
+<script src="Projector.js"></script>
+<script>
+
+window.onload = function () {
+
+	var config = {height: 500, maxDuration: 20, repeat: true, particles: []};
+	
+	for (var l = -1; l < 2; l += 2) {
+		for (var i = 0; i < 30; i++) {
+			// Circles
+			((i,l) => config.particles.push({
+				loc: (t) => [30 * l, 100 * Math.cos(Math.PI / 15 * i + t / 10 * Math.PI), 100 * Math.sin(Math.PI / 15 * i + t / 10 * Math.PI) + config.height],
+				color: (t) => {
+					if (i < 10) {
+						return [255, 255 - i * 19.2, 63 + i * 19.2];
+					} else if (i < 20) {
+						return [255 - (i - 10) * 19.2, 63 + (i - 10) * 19.2, 255];
+					} else {
+						return [63 + (i - 20) * 19.2, 255, 255 - (i - 20) * 19.2]
+					}
+				},
+				strength: (t) => 1
+			}))(i,l);
+		}
+		for (var i = 0; i < 6; i++) {
+			for (var j = 1; j < 5; j++) {
+				// Axes
+				((i,j,l) => config.particles.push({
+					loc: (t) => [30 * l, 20 * j * Math.cos(Math.PI / 3 * i + t / 10 * Math.PI), 20 * j * Math.sin(Math.PI / 3 * i + t / 10 * Math.PI) + config.height],
+					color: (t) => {
+					if (i < 2) {
+						return [255, 255 - i * 96 + i * (6 - j) * 16, 63 + i * 96 + (2 - i) * (6 - j) * 16];
+					} else if (i < 4) {
+						return [255 - (i - 2) * 96 + (i - 2) * (6 - j) * 16, 63 + (i - 2) * 96 + (4 - i) * (6 - j) * 16, 255];
+					} else {
+						return [63 + (i - 4) * 96 + (6 - i) * (6 - j) * 16, 255, 255 - (i - 4) * 96 + (i - 4) * (6 - j) * 16]
+					}
+				},
+					strength: (t) => 1
+				}))(i,j,l);
+			}
+			// Bars
+			((i,l) => config.particles.push({
+				loc: (t) => [10 * l, 100 * Math.cos(Math.PI / 3 * i + t / 10 * Math.PI), 100 * Math.sin(Math.PI / 3 * i + t / 10 * Math.PI) + config.height],
+				color: (t) => {
+					if (i < 2) {
+						return [255, 255 - i * 96, 63 + i * 96];
+					} else if (i < 4) {
+						return [255 - (i - 2) * 96, 63 + (i - 2) * 96, 255];
+					} else {
+						return [63 + (i - 4) * 96, 255, 255 - (i - 4) * 96]
+					}
+				},
+				strength: (t) => 1
+			}))(i,l);
+		}
+		for (var i = -1; i < 2; i += 2) {
+			for (var j = 1; j < 6; j++) {
+				// Stand
+				((i,j,l) => config.particles.push({
+					loc: (t) => [40 * l, 20 * i * j * Math.sin(Math.PI / 6), -20 * j * Math.cos(Math.PI / 6) + config.height],
+					color: (t) => [255, 255, 255],
+					strength: (t) => 1
+				}))(i,j,l);
+			}
+		}
+	}
+	for (var l = -2; l < 3; l++) {
+		// Pole
+		((l) => config.particles.push({
+			loc: (t) => [20 * l, 0, config.height],
+			color: (t) => [255, 255, 255],
+			strength: (t) => 1
+		}))(l);
+		for (var i = -1; i < 2; i += 2) {
+			// Bottom
+			((i,l) => config.particles.push({
+				loc: (t) => [20 * l, 120 * i * Math.sin(Math.PI / 6), -120 * Math.cos(Math.PI / 6) + config.height],
+				color: (t) => [255, 255, 255],
+				strength: (t) => 1
+			}))(i,l);
+		}
+	}
+	
+	
+
+	var textures = {};
+	material = function (color) {
+		var text = [Math.round(color[0]), Math.round(color[1]), Math.round(color[2])].join(",");
+		if (!(text in textures)) {
+			textures[text] = new THREE.CanvasTexture((() => {
+				var canvas = document.createElement("canvas");
+				canvas.width = 32;
+				canvas.height = 32;
+		
+				var context = canvas.getContext("2d");
+				var gradient = context.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2);
+				gradient.addColorStop(0, "rgba(255,255,255,1)");
+				gradient.addColorStop(0.2, "rgba(" + text + ",1)");
+				gradient.addColorStop(0.5, "rgba(" + text + ",0.2)");
+				gradient.addColorStop(1, "rgba(0,0,0,0.2)");
+		
+				context.fillStyle = gradient;
+				context.fillRect(0, 0, canvas.width, canvas.height);
+				return canvas;
+			})());
+		}
+		
+		return new THREE.SpriteMaterial({
+			map: textures[text],
+			blending: THREE.AdditiveBlending
+		});
+	}
+
+	var scene = new THREE.Scene();
+	scene.background = new THREE.Color(0x180f2a);
+	
+	particles = [];
+	var maxPreload = 0;
+	for (var i = 0; i < config.particles.length; i++) {
+		particle = new THREE.Sprite();
+		particle.scale.x = particle.scale.y = 6;
+	
+		scene.add(particle);
+		particles.push(particle);
+	}
+	
+	var camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.0001, 10000);
+	camera.position.set(750, 500, 0);
+	
+	var dist = (camera.position.y ** 2 + camera.position.x ** 2) ** 0.5;
+	camera.rotateX(dist == 0 ? Math.PI : Math.PI / 2 + Math.atan(config.height / dist));
+	camera.rotateOnWorldAxis(new THREE.Vector3(0, 0, -1), camera.position.y == 0 ? -Math.sign(camera.position.x) * Math.PI / 2 : Math.atan(camera.position.x / camera.position.y) + (camera.position.y > 0 ? Math.PI : 0));
+
+	renderer = new THREE.CanvasRenderer({ antialias: true, alpha: true });
+	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	document.body.appendChild(renderer.domElement);
+	
+	window.addEventListener("resize", () => {
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize(window.innerWidth, window.innerHeight);
+	}, false);
+	
+	function render(t) {
+		for (var i = 0; i < config.particles.length; i++) {
+			particles[i].position.fromArray(config.particles[i].loc(t));
+			particles[i].material = material(config.particles[i].color(t));
+			particles[i].material.opacity = config.particles[i].strength(t);
+		}
+
+		renderer.render(scene, camera);
+	}
+
+	var clock = new THREE.Clock();
+	(function animate() {
+		requestAnimationFrame(animate);
+
+		var time = clock.getElapsedTime();
+		if (time >= config.maxDuration) {
+			if (config.repeat) {
+				render(time % config.maxDuration);
+			} else {
+				render(config.maxDuration);
+			}
+		} else {
+			render(time);
+		}
+	})();
+
+}
+
+</script>
