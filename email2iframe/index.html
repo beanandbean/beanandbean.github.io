@@ -12,6 +12,7 @@
 				var node = document.createElement("iframe");
 				node.srcdoc = mail.html;
 				node.style.width = "100%";
+				node.style.height = "100%";
 				node.style.border = "none";
 				node.setAttribute("onload", "this.style.height = this.contentDocument.body.scrollHeight + \"px\"");
 				document.getElementById("output").value = node.outerHTML;
