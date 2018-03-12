@@ -1,0 +1,63 @@
+<title>Email -> iFrame</title>
+
+<script src="mailparser.js"></script>
+<script>
+	const simpleParser = require('mailparser').simpleParser;
+	const setImmediate = (fn) => { setTimeout(fn, 0); }
+
+	function process() {
+		document.getElementById("output").value = "Loading...";
+		simpleParser(document.getElementById("input").value, (err, mail) => {
+			if (err == null) {
+				var node = document.createElement("iframe");
+				node.srcdoc = mail.html;
+				node.style.width = "100%";
+				node.style.border = "none";
+				node.setAttribute("onload", "this.style.height = this.contentDocument.body.scrollHeight + \"px\"");
+				document.getElementById("output").value = node.outerHTML;
+			} else {
+				document.getElementById("output").value = "An error has occurred!";
+			}
+		})
+	}
+	
+	function copyResult() {
+		document.getElementById("output").select();
+		document.execCommand("Copy");
+		window.getSelection().removeAllRanges();
+	}
+	
+	function clear() {
+		document.getElementById("input").value = "";
+		document.getElementById("output").value = "";
+	}
+</script>
+
+<style>
+	body {
+		display: flex;
+	}
+	textarea {
+		flex-grow: 1;
+		resize: none;
+	}
+	#buttons {
+		align-self: center;
+		display: flex;
+		flex-direction: column;
+	}
+	button {
+		padding: 10px;
+		margin: 8px;
+	}
+</style>
+
+<body>
+	<textarea id="input"></textarea>
+	<div id="buttons">
+		<button onclick="process()">Process!</button>
+		<button onclick="copyResult()">Copy<br/>Result</button>
+		<button onclick="clear()">Clear</button>
+	</div>
+	<textarea id="output" readonly></textarea>
+</body>
