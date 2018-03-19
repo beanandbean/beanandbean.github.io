@@ -1,0 +1,48 @@
+<script>
+	function download(filename, data) {
+		var blob = new Blob([data], {type: "text/html"});
+		if(window.navigator.msSaveOrOpenBlob) {
+			window.navigator.msSaveBlob(blob, filename);
+		}
+		else{
+			var elem = window.document.createElement("a");
+			elem.href = window.URL.createObjectURL(blob);
+			elem.download = filename;        
+			document.body.appendChild(elem);
+			elem.click();        
+			document.body.removeChild(elem);
+		}
+	}
+
+	function process() {
+		var html = document.createElement("html");
+		html.innerHTML = document.getElementById("input").value;
+		var items = Array.from(html.getElementsByTagName("script"));
+		items.filter((s) => s.src == "http://fanyi.baidu.com/static/page.js").forEach((s) => s.remove());
+		Array.from(html.getElementsByTagName("a")).forEach((l) => {
+    	if (l.host == "translate.baiducontent.com" && l.pathname == "/transpage") {
+    		var params = new URLSearchParams(l.search);
+    		l.href = params.get("query");
+    	}
+		});
+		download("translated.html", html.outerHTML);
+	}
+</script>
+
+<style>
+	body {
+		display: flex;
+		flex-direction: column;
+	}
+	textarea {
+		flex-grow: 1;
+		resize: none;
+	}
+	button {
+		background: lightgreen;
+		padding: 20px 0;
+	}
+</style>
+
+<textarea id="input"></textarea>
+<button onclick="process()">Process!</button>
