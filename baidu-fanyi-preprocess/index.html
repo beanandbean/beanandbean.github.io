@@ -15,7 +15,7 @@
 	}
 
 	function process() {
-		var html = document.createElement("html");
+		html = document.createElement("html");
 		html.innerHTML = document.getElementById("input").value;
 		var items = Array.from(html.getElementsByTagName("script"));
 		items.filter((s) => s.src == "http://fanyi.baidu.com/static/page.js").forEach((s) => s.remove());
@@ -25,6 +25,10 @@
     		l.href = params.get("query");
     	}
 		});
+		if (document.getElementById("awesome-workaround").checked) {
+			var items = Array.from(html.getElementsByTagName("div"));
+			items.filter((d) => d.id == "awesomewrap").forEach((d) => d.remove());
+		}
 		download("translated.html", html.outerHTML);
 	}
 </script>
@@ -45,4 +49,5 @@
 </style>
 
 <textarea id="input"></textarea>
+<p><input id="awesome-workaround" type="checkbox" /> Apply awesome navigation workaround (for UCLA newsletter)</p>
 <button onclick="process()">Process!</button>
